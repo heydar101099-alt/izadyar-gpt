@@ -1,11 +1,47 @@
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
 export default {
   async fetch(request, env) {
-    // فقط درخواست‌های POST را قبول می‌کنیم
-    if (request.method !== "POST") {
-      return new Response("Izadyar GPT 2.0 is running.", {
-        status: 200,
-        headers: { "Content-Type": "text/plain; charset=utf-8" }
+    // پاسخ به درخواست‌های CORS
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: corsHeaders,
       });
+    }
+
+    // صفحه تست Worker
+    if (request.method === "GET") {
+      return new Response(
+        "Izadyar GPT 2.0 is running.",
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "text/plain; charset=utf-8",
+          },
+        }
+      );
+    }
+
+    // فقط POST برای چت
+    if (request.method !== "POST") {
+      return new Response(
+        JSON.stringify({
+          error: "Method Not Allowed",
+        }),
+        {
+          status: 405,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json; charset=utf-8",
+          },
+        }
+      );
     }
 
     try {
@@ -17,74 +53,147 @@ export default {
       const grade = String(data.grade || "").trim();
 
       if (!message) {
-        return Response.json(
-          { error: "پیامی دریافت نشد." },
-          { status: 400 }
+        return new Response(
+          JSON.stringify({
+            error: "پیامی دریافت نشد.",
+          }),
+          {
+            status: 400,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json; charset=utf-8",
+            },
+          }
         );
       }
 
-      const profile = `
-نام کاربر: ${name || "نامشخص"}
-سن: ${age || "نامشخص"}
-پایه تحصیلی: ${grade || "نامشخص"}
+      const userProfile = `
+اطلاعات کاربر:
+نام: ${name || "مشخص نشده"}
+سن: ${age || "مشخص نشده"}
+پایه تحصیلی: ${grade || "مشخص نشده"}
 `;
 
       const instructions = `
-تو «ایزدیار GPT 2.0» هستی؛ یک دستیار هوش مصنوعی فارسی‌زبان، دوستانه، دقیق و آموزشی.
+تو «ایزدیار GPT 2.0» هستی.
 
-${profile}
+تو یک دستیار هوش مصنوعی فارسی‌زبان، دوستانه، دقیق و آموزشی هستی.
 
-قوانین مهم:
-- با کاربر فارسی و روان صحبت کن.
-- اگر سؤال درسی پرسید، توضیح را متناسب با پایه تحصیلی خودش تنظیم کن.
-- جواب‌ها را آموزشی و قابل فهم بده، نه صرفاً جواب نهایی.
-- اگر اطلاعات سن یا پایه مشخص نیست، در صورت مناسب بودن گفتگو از کاربر بپرس.
-- در ابتدای اولین گفت‌وگو بهتر است نام، سن و پایهٔ تحصیلی کاربر مشخص شود.
-- لحن دوستانه و مناسب دانش‌آموزان داشته باش.
-- اگر سؤال خارج از درس بود، طبیعی و مفید پاسخ بده.
-- اطلاعاتی را که کاربر در همین درخواست داده، در پاسخ خود در نظر بگیر.
+${userProfile}
+
+قوانین ایزدیار:
+
+1. همیشه با فارسی روان و قابل فهم پاسخ بده.
+
+2. لحن تو دوستانه، محترمانه و مناسب نوجوانان باشد.
+
+3. اگر کاربر سؤال درسی پرسید، پاسخ را متناسب با پایه تحصیلی او تنظیم کن.
+
+4. برای سؤال‌های درسی فقط جواب نهایی را نده؛ تا حد امکان روش حل و دلیل پاسخ را هم توضیح بده.
+
+5. اگر کاربر پایه تحصیلی خود را مشخص کرده، سطح سختی توضیح را بر اساس همان پایه تنظیم کن.
+
+6. اگر پایه مشخص نیست و سؤال کاملاً درسی است، در صورت نیاز از کاربر پایه تحصیلی را بپرس.
+
+7. اگر نام کاربر مشخص شده، می‌توانی گاهی به شکل طبیعی از نام او استفاده کنی؛ اما زیاده‌روی نکن.
+
+8. اگر کاربر سؤال عمومی پرسید، لازم نیست پاسخ را به مدرسه یا درس محدود کنی.
+
+9. پاسخ‌ها را واضح، منظم و تا حد امکان کوتاه اما کامل ارائه کن.
+
+10. اگر مسئله‌ای چند مرحله دارد، مراحل را شماره‌گذاری کن.
+
+11. اگر کاربر چیزی را متوجه نشد، همان موضوع را ساده‌تر توضیح بده.
+
+12. اطلاعاتی مثل نام، سن و پایه را فقط برای شخصی‌سازی پاسخ همین درخواست در نظر بگیر. این Worker خودش حافظهٔ دائمی ابری ایجاد نمی‌کند.
+
+13. اگر کاربر درخواست خطرناک، غیرقانونی یا نامناسب داشت، ایمن و مسئولانه پاسخ بده.
+
+هدف اصلی:
+کمک به کاربر برای یادگیری، حل مسائل درسی، پاسخ به پرسش‌های عمومی و داشتن یک گفت‌وگوی مفید و طبیعی.
 `;
 
-      const response = await fetch(
+      // بررسی وجود Secret
+      if (!env.OPENAI_API_KEY) {
+        return new Response(
+          JSON.stringify({
+            error: "کلید OpenAI در Cloudflare تنظیم نشده است.",
+          }),
+          {
+            status: 500,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json; charset=utf-8",
+            },
+          }
+        );
+      }
+
+      const openAIResponse = await fetch(
         "https://api.openai.com/v1/responses",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${env.OPENAI_API_KEY}`
+            Authorization: `Bearer ${env.OPENAI_API_KEY}`,
           },
           body: JSON.stringify({
             model: "gpt-5-mini",
-            instructions,
-            input: message
-          })
+            instructions: instructions,
+            input: message,
+          }),
         }
       );
 
-      const result = await response.json();
+      const result = await openAIResponse.json();
 
-      if (!response.ok) {
-        return Response.json(
+      if (!openAIResponse.ok) {
+        return new Response(
+          JSON.stringify({
+            error: "ارتباط با OpenAI با خطا مواجه شد.",
+            details: result,
+          }),
           {
-            error: "خطا در ارتباط با OpenAI",
-            details: result
-          },
-          { status: response.status }
+            status: openAIResponse.status,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json; charset=utf-8",
+            },
+          }
         );
       }
 
-      return Response.json({
-        reply: result.output_text || "متأسفم، نتونستم پاسخ مناسبی تولید کنم."
-      });
+      const reply =
+        result.output_text ||
+        "متأسفم، در حال حاضر نتونستم پاسخ مناسبی تولید کنم.";
+
+      return new Response(
+        JSON.stringify({
+          reply: reply,
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json; charset=utf-8",
+          },
+        }
+      );
 
     } catch (error) {
-      return Response.json(
+      return new Response(
+        JSON.stringify({
+          error: "خطایی در پردازش درخواست ایزدیار رخ داد.",
+          details: error.message,
+        }),
         {
-          error: "خطای داخلی ایزدیار",
-          details: error.message
-        },
-        { status: 500 }
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json; charset=utf-8",
+          },
+        }
       );
     }
-  }
+  },
 };
